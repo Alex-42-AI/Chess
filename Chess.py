@@ -1150,11 +1150,15 @@ class Board:
             if self.__white_castled or other.__white_castled:
                 white_side = True
             else:
-                white_side = self.__white_queenside_rook_moved == other.__white_queenside_rook_moved and self.__white_kingside_rook_moved == other.__white_kingside_rook_moved and self.__white_king_moved == other.__white_king_moved
+                queenside_same = (self.__white_king_moved or self.__white_queenside_rook_moved) == (other.__white_king_moved or other.__white_queenside_rook_moved)
+                kingside_same = (self.__white_king_moved or self.__white_kingside_rook_moved) == (other.__white_king_moved or other.__white_kingside_rook_moved)
+                white_side = queenside_same and kingside_same
             if self.__black_castled or other.__black_castled:
                 black_side = True
             else:
-                black_side = self.__black_king_moved == other.__black_king_moved and self.__black_queenside_rook_moved == other.__black_queenside_rook_moved and self.__black_kingside_rook_moved == other.__black_kingside_rook_moved
+                queenside_same = (self.__black_king_moved or self.__black_queenside_rook_moved) == (other.__black_king_moved or other.__black_queenside_rook_moved)
+                kingside_same = (self.__black_king_moved or self.__black_kingside_rook_moved) == (other.__black_king_moved or other.__black_kingside_rook_moved)
+                black_side = queenside_same and kingside_same
             return white_side and black_side
         return False
     def __str__(self):
