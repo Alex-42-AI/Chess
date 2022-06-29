@@ -36,6 +36,8 @@ class Board:
         return total_material_strength <= 5
     def under_check(self):
         return self.__under_check
+    def turn(self):
+        return self.__turn
     def copy(self):
         res = Board()
         for i in range(8):
@@ -45,7 +47,7 @@ class Board:
         res.__white_queenside_rook_moved, res.__white_kingside_rook_moved, res.__black_king_moved, res.__black_queenside_rook_moved = self.__white_queenside_rook_moved, self.__white_kingside_rook_moved, self.__black_king_moved, self.__black_queenside_rook_moved
         res.__black_kingside_rook_moved, res.__under_check = self.__black_kingside_rook_moved, self.__under_check
         return res
-    def move(self, square: str, dest_square: str):
+    def move(self, square: str, dest_square: str, _promoted_piece=None):
         coordinates = (8 - int(square[1]), ord(square[0]) - 97)
         piece = self.__board[coordinates[0]][coordinates[1]]
         if piece.isupper() and self.__turn % 2 or piece.islower() and not self.__turn % 2 or square == dest_square or piece == ' ':
@@ -53,7 +55,8 @@ class Board:
         dest_coord = (8 - int(dest_square[1]), ord(dest_square[0]) - 97)
         if dest_coord not in self.possible_moves(square):
             raise ValueError
-        last_val, self.__last_double_move, promotion = self.__last_double_move, None, False
+        if coordinates[0] == (1, 6)[self.__turn % 2] and piece == 'Pp'[self.__turn % 2] and _promoted_piece not in list(['QRBN', 'qrbn'][self.__turn % 2]):
+            raise ValueError
         if piece.lower() == 'r':
             if square == 'h1':
                 self.__white_kingside_rook_moved = True
@@ -75,137 +78,36 @@ class Board:
                         self.__board[7][5], self.__board[7][7] = 'R', ' '
                     elif dest_coord[1] == 2:
                         self.__board[7][0], self.__board[7][3] = ' ', 'R'
+            if self.__turn % 2:
+                self.__black_king_moved = True
+            else:
+                self.__white_king_moved = True
         elif piece.lower() == 'p':
             if self.__turn % 2:
                 if coordinates[1] == dest_coord[1] and coordinates[0] == 1 and dest_coord[0] == 3:
                     self.__last_double_move = dest_coord
-                self.__board[coordinates[0]][dest_coord[1]] = ' '
-                if dest_coord[0] == 7:
-                    promotion = True
             else:
                 if coordinates[1] == dest_coord[1] and coordinates[0] == 6 and dest_coord[0] == 4:
                     self.__last_double_move = dest_coord
+            if self.__last_double_move is not None and abs(dest_coord[0] - self.__last_double_move[0]) == 1 and dest_coord[1] == self.__last_double_move[1]:
                 self.__board[coordinates[0]][dest_coord[1]] = ' '
-                if not dest_coord[0]:
-                    promotion = True
-        res = piece
-        if promotion:
-            res = input()
-            if res.lower() not in ['q', 'r', 'b', 'n']:
-                self.__last_double_move = last_val
-                raise ValueError
+        res = (piece, _promoted_piece)[bool(_promoted_piece)]
         self.__board[coordinates[0]][coordinates[1]], self.__board[dest_coord[0]][dest_coord[1]] = ' ', res
+        if not (piece.lower() == 'p' and (coordinates[0] == 6 and dest_coord[0] == 4, coordinates[0] == 1 and dest_coord[0] == 3)[self.__turn % 2]):
+            self.__last_double_move = None
+        if not self.possible_position():
+            self.__under_check = True
         self.__turn += 1
-        king_position = None
-        for r in range(8):
-            for c in range(8):
-                if self.__board[r][c] == ('K', 'k')[self.__turn % 2]:
-                    king_position = (r, c)
-                    break
-            if king_position is not None:
-                break
-        possible_knight_positions = []
-        if king_position[0] >= 1:
-            if king_position[1] >= 2:
-                possible_knight_positions.append((king_position[0] - 1, king_position[1] - 2))
-            if king_position[1] <= 5:
-                possible_knight_positions.append((king_position[0] - 1, king_position[1] + 2))
-            if king_position[0] >= 2:
-                if king_position[1] >= 1:
-                    possible_knight_positions.append((king_position[0] - 2, king_position[1] - 1))
-                if king_position[1] <= 6:
-                    possible_knight_positions.append((king_position[0] - 2, king_position[1] + 1))
-        if king_position[0] <= 6:
-            if king_position[1] >= 2:
-                possible_knight_positions.append((king_position[0] + 1, king_position[1] - 2))
-            if king_position[1] <= 5:
-                possible_knight_positions.append((king_position[0] + 1, king_position[1] + 2))
-            if king_position[0] <= 5:
-                if king_position[1] >= 1:
-                    possible_knight_positions.append((king_position[0] + 2, king_position[1] - 1))
-                if king_position[1] <= 6:
-                    possible_knight_positions.append((king_position[0] + 2, king_position[1] + 1))
-        for coord in possible_knight_positions:
-            if self.__board[coord[0]][coord[1]] == 'nN'[self.__turn % 2]:
-                self.__under_check = True
-                break
-        for i in range(king_position[0] + 1, 8):
-            if self.__board[i][king_position[1]] in ('rR'[self.__turn % 2], 'qQ'[self.__turn % 2]):
-                self.__under_check = True
-                break
-            if self.__board[i][king_position[1]].isalpha():
-                break
-        for i in range(king_position[0] - 1, -1, -1):
-            if self.__board[i][king_position[1]] in ('rR'[self.__turn % 2], 'qQ'[self.__turn % 2]):
-                self.__under_check = True
-                break
-            if self.__board[i][king_position[1]].isalpha():
-                break
-        for j in range(king_position[1] + 1, 8):
-            if self.__board[king_position[0]][j] in ('rR'[self.__turn % 2], 'qQ'[self.__turn % 2]):
-                self.__under_check = True
-                break
-            if self.__board[king_position[0]][j].isalpha():
-                break
-        for j in range(king_position[1] - 1, -1, -1):
-            if self.__board[king_position[0]][j] in ('rR'[self.__turn % 2], 'qQ'[self.__turn % 2]):
-                self.__under_check = True
-                break
-            if self.__board[king_position[0]][j].isalpha():
-                break
-        ii, jj = king_position[0] - 1, king_position[1] - 1
-        while 0 <= ii <= 7 and 0 <= jj <= 7:
-            if self.__board[ii][jj] in ('bB'[self.__turn % 2], 'qQ'[self.__turn % 2]):
-                self.__under_check = True
-                break
-            if self.__board[ii][jj].isalpha():
-                break
-            ii, jj = ii - 1, jj - 1
-        ii, jj = king_position[0] + 1, king_position[1] - 1
-        while 0 <= ii <= 7 and 0 <= jj <= 7:
-            if self.__board[ii][jj] in ('bB'[self.__turn % 2], 'qQ'[self.__turn % 2]):
-                self.__under_check = True
-                break
-            if self.__board[ii][jj].isalpha():
-                break
-            ii, jj = ii + 1, jj - 1
-        ii, jj = king_position[0] - 1, king_position[1] + 1
-        while 0 <= ii <= 7 and 0 <= jj <= 7:
-            if self.__board[ii][jj] in ('bB'[self.__turn % 2], 'qQ'[self.__turn % 2]):
-                self.__under_check = True
-                break
-            if self.__board[ii][jj].isalpha():
-                break
-            ii, jj = ii - 1, jj + 1
-        ii, jj = king_position[0] + 1, king_position[1] + 1
-        while 0 <= ii <= 7 and 0 <= jj <= 7:
-            if self.__board[ii][jj] in ('bB'[self.__turn % 2], 'qQ'[self.__turn % 2]):
-                self.__under_check = True
-                break
-            if self.__board[ii][jj].isalpha():
-                break
-            ii, jj = ii + 1, jj + 1
         nowhere_to_move = True
-        if self.__turn % 2:
-            for i in range(8):
-                for j in range(8):
-                    square = chr(i + 97) + str(8 - i)
-                    if self.__board[i][j].islower():
-                        if self.possible_moves(square):
-                            nowhere_to_move = False
-                            break
-                if not nowhere_to_move:
-                    break
-        else:
-            for i in range(8):
-                for j in range(8):
-                    square = chr(i + 97) + str(8 - i)
-                    if self.__board[i][j].isupper():
-                        if self.possible_moves(square):
-                            nowhere_to_move = False
-                            break
-                if not nowhere_to_move:
-                    break
+        for i in range(8):
+            for j in range(8):
+                square = chr(j + 97) + str(8 - i)
+                if self.__board[i][j].islower() and self.__turn % 2 or self.__board[i][j].isupper() and not self.__turn % 2:
+                    if self.possible_moves(square):
+                        nowhere_to_move = False
+                        break
+            if not nowhere_to_move:
+                break
         return nowhere_to_move
     def possible_moves(self, square: str):
         i, j = 8 - int(square[1]), ord(square[0]) - 97
@@ -494,150 +396,158 @@ class Board:
                 if i >= 1:
                     if j >= 2:
                         if self.__board[i - 1][j - 2] == ' ' or self.__board[i - 1][j - 2].isalpha() and self.__board[i - 1][j - 2].isupper() == piece.islower():
-                            self.__board[i - 1][j - 2], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[i - 1][j - 2], self.__turn + 1
+                            curr_piece = self.__board[i - 1][j - 2]
+                            self.__board[i - 1][j - 2], self.__board[i][j], self.__turn = self.__board[i][j], ' ', self.__turn + 1
                             if self.possible_position():
                                 moves.append((i - 1, j - 2))
-                            self.__board[i - 1][j - 2], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[i - 1][j - 2], self.__turn - 1
+                            self.__board[i - 1][j - 2], self.__board[i][j], self.__turn = curr_piece, self.__board[i - 1][j - 2], self.__turn - 1
                     if j <= 5:
                         if self.__board[i - 1][j + 2] == ' ' or self.__board[i - 1][j + 2].isalpha() and self.__board[i - 1][j + 2].isupper() == piece.islower():
-                            self.__board[i - 1][j + 2], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[i - 1][j + 2], self.__turn + 1
+                            curr_piece = self.__board[i - 1][j + 2]
+                            self.__board[i - 1][j + 2], self.__board[i][j], self.__turn = self.__board[i][j], ' ', self.__turn + 1
                             if self.possible_position():
                                 moves.append((i - 1, j + 2))
-                            self.__board[i - 1][j + 2], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[i - 1][j + 2], self.__turn - 1
+                            self.__board[i - 1][j + 2], self.__board[i][j], self.__turn = curr_piece, self.__board[i - 1][j + 2], self.__turn - 1
                 if i >= 2:
                     if j >= 1:
                         if self.__board[i - 2][j - 1] == ' ' or self.__board[i - 2][j - 1].isalpha() and self.__board[i - 2][j - 1].isupper() == piece.islower():
-                            self.__board[i - 2][j - 1], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[i - 2][j - 1], self.__turn + 1
+                            curr_piece = self.__board[i - 2][j - 1]
+                            self.__board[i - 2][j - 1], self.__board[i][j], self.__turn = self.__board[i][j], ' ', self.__turn + 1
                             if self.possible_position():
                                 moves.append((i - 2, j - 1))
-                            self.__board[i - 2][j - 1], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[i - 2][j - 1], self.__turn - 1
+                            self.__board[i - 2][j - 1], self.__board[i][j], self.__turn = curr_piece, self.__board[i - 2][j - 1], self.__turn - 1
                     if j <= 6:
                         if self.__board[i - 2][j + 1] == ' ' or self.__board[i - 2][j + 1].isalpha() and self.__board[i - 2][j + 1].isupper() == piece.islower():
-                            self.__board[i - 2][j + 1], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[i - 2][j + 1], self.__turn + 1
+                            curr_piece = self.__board[i - 2][j + 1]
+                            self.__board[i - 2][j + 1], self.__board[i][j], self.__turn = self.__board[i][j], ' ', self.__turn + 1
                             if self.possible_position():
                                 moves.append((i - 2, j + 1))
-                            self.__board[i - 2][j + 1], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[i - 2][j + 1], self.__turn - 1
+                            self.__board[i - 2][j + 1], self.__board[i][j], self.__turn = curr_piece, self.__board[i - 2][j + 1], self.__turn - 1
                 if i <= 6:
                     if j >= 2:
                         if self.__board[i + 1][j - 2] == ' ' or self.__board[i + 1][j - 2].isalpha() and self.__board[i + 1][j - 2].isupper() == piece.islower():
-                            self.__board[i + 1][j - 2], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[i + 1][j - 2], self.__turn + 1
+                            curr_piece = self.__board[i + 1][j - 2]
+                            self.__board[i + 1][j - 2], self.__board[i][j], self.__turn = self.__board[i][j], ' ', self.__turn + 1
                             if self.possible_position():
                                 moves.append((i + 1, j - 2))
-                            self.__board[i + 1][j - 2], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[i + 1][j - 2], self.__turn - 1
+                            self.__board[i + 1][j - 2], self.__board[i][j], self.__turn = curr_piece, self.__board[i + 1][j - 2], self.__turn - 1
                     if j <= 5:
                         if self.__board[i + 1][j + 2] == ' ' or self.__board[i + 1][j + 2].isalpha() and self.__board[i + 1][j + 2].isupper() == piece.islower():
-                            self.__board[i + 1][j + 2], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[i + 1][j + 2], self.__turn + 1
+                            curr_piece = self.__board[i + 1][j + 2]
+                            self.__board[i + 1][j + 2], self.__board[i][j], self.__turn = self.__board[i][j], ' ', self.__turn + 1
                             if self.possible_position():
                                 moves.append((i + 1, j + 2))
-                            self.__board[i + 1][j + 2], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[i + 1][j + 2], self.__turn - 1
+                            self.__board[i + 1][j + 2], self.__board[i][j], self.__turn = curr_piece, self.__board[i + 1][j + 2], self.__turn - 1
                 if i <= 5:
                     if j >= 1:
                         if self.__board[i + 2][j - 1] == ' ' or self.__board[i + 2][j - 1].isalpha() and self.__board[i + 2][j - 1].isupper() == piece.islower():
-                            self.__board[i + 2][j - 1], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[i + 2][j - 1], self.__turn + 1
+                            curr_piece = self.__board[i + 2][j - 1]
+                            self.__board[i + 2][j - 1], self.__board[i][j], self.__turn = self.__board[i][j], ' ', self.__turn + 1
                             if self.possible_position():
                                 moves.append((i + 2, j - 1))
-                            self.__board[i + 2][j - 1], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[i + 2][j - 1], self.__turn - 1
+                            self.__board[i + 2][j - 1], self.__board[i][j], self.__turn = curr_piece, self.__board[i + 2][j - 1], self.__turn - 1
                     if j <= 6:
                         if self.__board[i + 2][j + 1] == ' ' or self.__board[i + 2][j + 1].isalpha() and self.__board[i + 2][j + 1].isupper() == piece.islower():
-                            self.__board[i + 2][j + 1], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[i + 2][j + 1], self.__turn + 1
+                            curr_piece = self.__board[i + 2][j + 1]
+                            self.__board[i + 2][j + 1], self.__board[i][j], self.__turn = self.__board[i][j], ' ', self.__turn + 1
                             if self.possible_position():
                                 moves.append((i + 2, j + 1))
-                            self.__board[i + 2][j + 1], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[i + 2][j + 1], self.__turn - 1
+                            self.__board[i + 2][j + 1], self.__board[i][j], self.__turn = curr_piece, self.__board[i + 2][j + 1], self.__turn - 1
             elif piece.lower() == 'r':
                 for _i in range(i - 1, -1, -1):
                     if self.__board[_i][j].isalpha() and self.__board[_i][j].islower() == piece.islower():
                         break
-                    self.__board[_i][j], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[_i][j], self.__turn + 1
+                    curr_piece = self.__board[_i][j]
+                    self.__board[_i][j], self.__board[i][j], self.__turn = self.__board[i][j], ' ', self.__turn + 1
                     if self.possible_position():
                         moves.append((_i, j))
-                    self.__board[_i][j], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[_i][j], self.__turn - 1
+                    self.__board[_i][j], self.__board[i][j], self.__turn = curr_piece, self.__board[_i][j], self.__turn - 1
                     if self.__board[_i][j].isalpha():
                         break
                 for _i in range(i + 1, 8):
                     if self.__board[_i][j].isalpha() and self.__board[_i][j].islower() == piece.islower():
                         break
-                    self.__board[_i][j], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[_i][j], self.__turn + 1
+                    curr_piece = self.__board[_i][j]
+                    self.__board[_i][j], self.__board[i][j], self.__turn = self.__board[i][j], ' ', self.__turn + 1
                     if self.possible_position():
                         moves.append((_i, j))
-                    self.__board[_i][j], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[_i][j], self.__turn - 1
+                    self.__board[_i][j], self.__board[i][j], self.__turn = curr_piece, self.__board[_i][j], self.__turn - 1
                     if self.__board[_i][j].isalpha():
                         break
                 for _j in range(j - 1, -1, -1):
                     if self.__board[i][_j].isalpha() and self.__board[i][_j].islower() == piece.islower():
                         break
-                    self.__board[i][_j], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[i][_j], self.__turn + 1
+                    curr_piece = self.__board[i][_j]
+                    self.__board[i][_j], self.__board[i][j], self.__turn = self.__board[i][j], ' ', self.__turn + 1
                     if self.possible_position():
                         moves.append((i, _j))
-                    self.__board[i][_j], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[i][_j], self.__turn - 1
+                    self.__board[i][_j], self.__board[i][j], self.__turn = curr_piece, self.__board[i][_j], self.__turn - 1
                     if self.__board[i][_j].isalpha():
                         break
                 for _j in range(j + 1, 8):
                     if self.__board[i][_j].isalpha() and self.__board[i][_j].islower() == piece.islower():
                         break
-                    self.__board[i][_j], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[i][_j], self.__turn + 1
+                    curr_piece = self.__board[i][_j]
+                    self.__board[i][_j], self.__board[i][j], self.__turn = self.__board[i][j], ' ', self.__turn + 1
                     if self.possible_position():
                         moves.append((i, _j))
-                    self.__board[i][_j], self.__board[i][j], self.__turn = self.__board[i][j], self.__board[i][_j], self.__turn - 1
+                    self.__board[i][_j], self.__board[i][j], self.__turn = curr_piece, self.__board[i][_j], self.__turn - 1
                     if self.__board[i][_j].isalpha():
                         break
             elif piece.lower() == 'b':
                 ii, jj = i - 1, j - 1
                 while 0 <= ii <= 7 and 0 <= jj <= 7:
-                    taken_piece = None
                     if self.__board[ii][jj].isalpha():
                         if piece.isupper() == self.__board[ii][jj].isupper():
                             break
-                        taken_piece = self.__board[ii][jj]
+                    taken_piece = self.__board[ii][jj]
                     self.__board[i][j], self.__board[ii][jj], self.__turn = ' ', self.__board[i][j], self.__turn + 1
                     if self.possible_position():
                         moves.append((ii, jj))
-                    self.__board[i][j], self.__board[ii][jj], self.__turn = self.__board[ii][jj], (' ', taken_piece)[bool(taken_piece)], self.__turn - 1
-                    if taken_piece:
+                    self.__board[i][j], self.__board[ii][jj], self.__turn = self.__board[ii][jj], taken_piece, self.__turn - 1
+                    if taken_piece != ' ':
                         break
                     ii -= 1
                     jj -= 1
                 ii, jj = i - 1, j + 1
                 while 0 <= ii <= 7 and 0 <= jj <= 7:
-                    taken_piece = None
                     if self.__board[ii][jj].isalpha():
                         if piece.isupper() == self.__board[ii][jj].isupper():
                             break
-                        taken_piece = self.__board[ii][jj]
+                    taken_piece = self.__board[ii][jj]
                     self.__board[i][j], self.__board[ii][jj], self.__turn = ' ', self.__board[i][j], self.__turn + 1
                     if self.possible_position():
                         moves.append((ii, jj))
-                    self.__board[i][j], self.__board[ii][jj], self.__turn = self.__board[ii][jj], (' ', taken_piece)[bool(taken_piece)], self.__turn - 1
-                    if taken_piece:
+                    self.__board[i][j], self.__board[ii][jj], self.__turn = self.__board[ii][jj], taken_piece, self.__turn - 1
+                    if taken_piece != ' ':
                         break
                     ii -= 1
                     jj += 1
                 ii, jj = i + 1, j - 1
                 while 0 <= ii <= 7 and 0 <= jj <= 7:
-                    taken_piece = None
                     if self.__board[ii][jj].isalpha():
                         if piece.isupper() == self.__board[ii][jj].isupper():
                             break
-                        taken_piece = self.__board[ii][jj]
+                    taken_piece = self.__board[ii][jj]
                     self.__board[i][j], self.__board[ii][jj], self.__turn = ' ', self.__board[i][j], self.__turn + 1
                     if self.possible_position():
                         moves.append((ii, jj))
-                    self.__board[i][j], self.__board[ii][jj], self.__turn = self.__board[ii][jj], (' ', taken_piece)[bool(taken_piece)], self.__turn - 1
-                    if taken_piece:
+                    self.__board[i][j], self.__board[ii][jj], self.__turn = self.__board[ii][jj], taken_piece, self.__turn - 1
+                    if taken_piece != ' ':
                         break
                     ii += 1
                     jj -= 1
                 ii, jj = i + 1, j + 1
                 while 0 <= ii <= 7 and 0 <= jj <= 7:
-                    taken_piece = None
                     if self.__board[ii][jj].isalpha():
                         if piece.isupper() == self.__board[ii][jj].isupper():
                             break
-                        taken_piece = self.__board[ii][jj]
+                    taken_piece = self.__board[ii][jj]
                     self.__board[i][j], self.__board[ii][jj], self.__turn = ' ', self.__board[i][j], self.__turn + 1
                     if self.possible_position():
                         moves.append((ii, jj))
-                    self.__board[i][j], self.__board[ii][jj], self.__turn = self.__board[ii][jj], (' ', taken_piece)[bool(taken_piece)], self.__turn - 1
-                    if taken_piece:
+                    self.__board[i][j], self.__board[ii][jj], self.__turn = self.__board[ii][jj], taken_piece, self.__turn - 1
+                    if taken_piece != ' ':
                         break
                     ii += 1
                     jj += 1
@@ -645,108 +555,96 @@ class Board:
                 for _i in range(i - 1, -1, -1):
                     if self.__board[_i][j].isalpha() and self.__board[_i][j].islower() == piece.islower():
                         break
-                    taken_piece = None
-                    if self.__board[_i][j].isalpha():
-                        taken_piece = self.__board[_i][j]
-                    self.__board[i][j], self.__board[_i][j], self.__turn = ' ', self.__board[i][j], self.__turn + 1
+                    curr_piece = self.__board[_i][j]
+                    self.__board[_i][j], self.__board[i][j], self.__turn = self.__board[i][j], ' ', self.__turn + 1
                     if self.possible_position():
                         moves.append((_i, j))
-                    self.__board[i][j], self.__board[_i][j], self.__turn = self.__board[i][j], (' ', taken_piece)[bool(taken_piece)], self.__turn - 1
-                    if taken_piece:
+                    self.__board[_i][j], self.__board[i][j], self.__turn = curr_piece, self.__board[_i][j], self.__turn - 1
+                    if self.__board[_i][j].isalpha():
                         break
                 for _i in range(i + 1, 8):
                     if self.__board[_i][j].isalpha() and self.__board[_i][j].islower() == piece.islower():
                         break
-                    taken_piece = None
-                    if self.__board[_i][j].isalpha():
-                        taken_piece = self.__board[_i][j]
-                    self.__board[i][j], self.__board[_i][j], self.__turn = ' ', self.__board[i][j], self.__turn + 1
+                    curr_piece = self.__board[_i][j]
+                    self.__board[_i][j], self.__board[i][j], self.__turn = self.__board[i][j], ' ', self.__turn + 1
                     if self.possible_position():
                         moves.append((_i, j))
-                    self.__board[i][j], self.__board[_i][j], self.__turn = self.__board[i][j], (' ', taken_piece)[bool(taken_piece)], self.__turn - 1
-                    if taken_piece:
+                    self.__board[_i][j], self.__board[i][j], self.__turn = curr_piece, self.__board[_i][j], self.__turn - 1
+                    if self.__board[_i][j].isalpha():
                         break
                 for _j in range(j - 1, -1, -1):
                     if self.__board[i][_j].isalpha() and self.__board[i][_j].islower() == piece.islower():
                         break
-                    taken_piece = None
-                    if self.__board[i][_j].isalpha():
-                        taken_piece = self.__board[i][_j]
-                    self.__board[i][j], self.__board[i][_j], self.__turn = ' ', self.__board[i][j], self.__turn + 1
+                    curr_piece = self.__board[i][_j]
+                    self.__board[i][_j], self.__board[i][j], self.__turn = self.__board[i][j], ' ', self.__turn + 1
                     if self.possible_position():
                         moves.append((i, _j))
-                    self.__board[i][j], self.__board[i][_j], self.__turn = self.__board[i][j], (' ', taken_piece)[bool(taken_piece)], self.__turn - 1
-                    if taken_piece:
+                    self.__board[i][_j], self.__board[i][j], self.__turn = curr_piece, self.__board[i][_j], self.__turn - 1
+                    if self.__board[i][_j].isalpha():
                         break
                 for _j in range(j + 1, 8):
                     if self.__board[i][_j].isalpha() and self.__board[i][_j].islower() == piece.islower():
                         break
-                    taken_piece = None
-                    if self.__board[i][_j].isalpha():
-                        taken_piece = self.__board[i][_j]
-                    self.__board[i][j], self.__board[i][_j], self.__turn = ' ', self.__board[i][j], self.__turn + 1
+                    curr_piece = self.__board[i][_j]
+                    self.__board[i][_j], self.__board[i][j], self.__turn = self.__board[i][j], ' ', self.__turn + 1
                     if self.possible_position():
                         moves.append((i, _j))
-                    self.__board[i][j], self.__board[i][_j], self.__turn = self.__board[i][j], (' ', taken_piece)[bool(taken_piece)], self.__turn - 1
-                    if taken_piece:
+                    self.__board[i][_j], self.__board[i][j], self.__turn = curr_piece, self.__board[i][_j], self.__turn - 1
+                    if self.__board[i][_j].isalpha():
                         break
                 ii, jj = i - 1, j - 1
                 while 0 <= ii <= 7 and 0 <= jj <= 7:
-                    taken_piece = None
                     if self.__board[ii][jj].isalpha():
                         if piece.isupper() == self.__board[ii][jj].isupper():
                             break
-                        taken_piece = self.__board[ii][jj]
+                    taken_piece = self.__board[ii][jj]
                     self.__board[i][j], self.__board[ii][jj], self.__turn = ' ', self.__board[i][j], self.__turn + 1
                     if self.possible_position():
                         moves.append((ii, jj))
-                    self.__board[i][j], self.__board[ii][jj], self.__turn = self.__board[ii][jj], (' ', taken_piece)[bool(taken_piece)], self.__turn - 1
-                    if taken_piece:
+                    self.__board[i][j], self.__board[ii][jj], self.__turn = self.__board[ii][jj], taken_piece, self.__turn - 1
+                    if taken_piece != ' ':
                         break
                     ii -= 1
                     jj -= 1
                 ii, jj = i - 1, j + 1
                 while 0 <= ii <= 7 and 0 <= jj <= 7:
-                    taken_piece = None
                     if self.__board[ii][jj].isalpha():
                         if piece.isupper() == self.__board[ii][jj].isupper():
                             break
-                        taken_piece = self.__board[ii][jj]
+                    taken_piece = self.__board[ii][jj]
                     self.__board[i][j], self.__board[ii][jj], self.__turn = ' ', self.__board[i][j], self.__turn + 1
                     if self.possible_position():
                         moves.append((ii, jj))
-                    self.__board[i][j], self.__board[ii][jj], self.__turn = self.__board[ii][jj], (' ', taken_piece)[bool(taken_piece)], self.__turn - 1
-                    if taken_piece:
+                    self.__board[i][j], self.__board[ii][jj], self.__turn = self.__board[ii][jj], taken_piece, self.__turn - 1
+                    if taken_piece != ' ':
                         break
                     ii -= 1
                     jj += 1
                 ii, jj = i + 1, j - 1
                 while 0 <= ii <= 7 and 0 <= jj <= 7:
-                    taken_piece = None
                     if self.__board[ii][jj].isalpha():
                         if piece.isupper() == self.__board[ii][jj].isupper():
                             break
-                        taken_piece = self.__board[ii][jj]
+                    taken_piece = self.__board[ii][jj]
                     self.__board[i][j], self.__board[ii][jj], self.__turn = ' ', self.__board[i][j], self.__turn + 1
                     if self.possible_position():
                         moves.append((ii, jj))
-                    self.__board[i][j], self.__board[ii][jj], self.__turn = self.__board[ii][jj], (' ', taken_piece)[bool(taken_piece)], self.__turn - 1
-                    if taken_piece:
+                    self.__board[i][j], self.__board[ii][jj], self.__turn = self.__board[ii][jj], taken_piece, self.__turn - 1
+                    if taken_piece != ' ':
                         break
                     ii += 1
                     jj -= 1
                 ii, jj = i + 1, j + 1
                 while 0 <= ii <= 7 and 0 <= jj <= 7:
-                    taken_piece = None
                     if self.__board[ii][jj].isalpha():
                         if piece.isupper() == self.__board[ii][jj].isupper():
                             break
-                        taken_piece = self.__board[ii][jj]
+                    taken_piece = self.__board[ii][jj]
                     self.__board[i][j], self.__board[ii][jj], self.__turn = ' ', self.__board[i][j], self.__turn + 1
                     if self.possible_position():
                         moves.append((ii, jj))
-                    self.__board[i][j], self.__board[ii][jj], self.__turn = self.__board[ii][jj], (' ', taken_piece)[bool(taken_piece)], self.__turn - 1
-                    if taken_piece:
+                    self.__board[i][j], self.__board[ii][jj], self.__turn = self.__board[ii][jj], taken_piece, self.__turn - 1
+                    if taken_piece != ' ':
                         break
                     ii += 1
                     jj += 1
@@ -819,13 +717,13 @@ class Board:
                             if self.possible_position():
                                 moves.append((i + 1, j + 1))
                             self.__board[i][j], self.__board[i + 1][j + 1], self.__board[i][j + 1], self.__turn = 'p', ' ', 'P', self.__turn - 1
-                    if self.__board[i + 1][j - 1].islower() and j:
+                    if self.__board[i + 1][j - 1].isupper() and j:
                         taken_piece = self.__board[i + 1][j - 1]
                         self.__board[i][j], self.__board[i + 1][j - 1], self.__turn = ' ', 'p', self.__turn + 1
                         if self.possible_position():
                             moves.append((i + 1, j - 1))
                         self.__board[i][j], self.__board[i + 1][j - 1], self.__turn = 'p', taken_piece, self.__turn - 1
-                    if self.__board[i + 1][min(j + 1, 7)].islower() and j < 7:
+                    if self.__board[i + 1][min(j + 1, 7)].isupper() and j < 7:
                         taken_piece = self.__board[i + 1][j + 1]
                         self.__board[i][j], self.__board[i + 1][j + 1], self.__turn = ' ', 'p', self.__turn + 1
                         if self.possible_position():
@@ -978,7 +876,7 @@ class Board:
                             ii += 1
                             jj += 1
                     elif self.__board[i][j] == 'p':
-                        if self.__board[i - 1][j - 1] == 'K' and j or self.__board[i - 1][min(j + 1, 7)] == 'K' and j < 8:
+                        if self.__board[i + 1][j - 1] == 'K' and j or self.__board[i + 1][min(j + 1, 7)] == 'K' and j < 7:
                             return False
         else:
             for i in range(8):
@@ -1125,7 +1023,21 @@ class Board:
                             ii += 1
                             jj += 1
                     elif self.__board[i][j] == 'P':
-                        if self.__board[i + 1][j - 1] == 'k' and j or self.__board[i + 1][min(j + 1, 7)] == 'k' and j < 8:
+                        if self.__board[i - 1][j - 1] == 'k' and j or self.__board[i - 1][min(j + 1, 7)] == 'k' and j < 7:
+                            return False
+        return True
+    def game_over(self):
+        if self.__turn % 2:
+            for i in range(8):
+                for j in range(8):
+                    if self.__board[i][j].islower():
+                        if self.possible_moves(chr(j + 97) + str(8 - i)):
+                            return False
+        else:
+            for i in range(8):
+                for j in range(8):
+                    if self.__board[i][j].isupper():
+                        if self.possible_moves(chr(j + 97) + str(8 - i)):
                             return False
         return True
     def evaluate(self):
@@ -1135,7 +1047,7 @@ class Board:
                 for j in range(8):
                     if self.__board[i][j] != ' ':
                         piece = self.__board[i][j]
-                        if self.__importance_strength[piece][0] != float('inf'):
+                        if abs(self.__importance_strength[piece][0]) != float('inf'):
                             strength_value += self.__importance_strength[piece][0]
             return strength_value
         def pawn_structure():
@@ -1161,7 +1073,9 @@ class Board:
                 isles = [[black_pawns[0]]]
                 _i = 0
                 while _i < len(black_pawns):
-                    while black_pawns[_i][1] <= 1 + isles[-1][-1][1]:
+                    a = black_pawns[_i][1]
+                    b = isles[-1][-1]
+                    while a <= 1 + b[1]:
                         isles[-1].append(black_pawns[_i])
                         _i += 1
                         if _i == len(black_pawns):
@@ -1191,7 +1105,9 @@ class Board:
                 isles = [[white_pawns[0]]]
                 _i = 0
                 while _i < len(white_pawns):
-                    while white_pawns[_i][1] <= 1 + isles[-1][-1][1]:
+                    a = white_pawns[_i][1]
+                    b = isles[-1][-1]
+                    while a <= 1 + b[1]:
                         isles[-1].append(white_pawns[_i])
                         _i += 1
                         if _i == len(white_pawns):
@@ -1216,51 +1132,59 @@ class Board:
             return 0
         def influence_on_the_board():
             return 0
-        def game_over():
-            if self.__turn % 2:
-                for i in range(8):
-                    for j in range(8):
-                        if self.__board[i][j].islower():
-                            if self.possible_moves(chr(j + 97) + str(8 - i)):
-                                return False
-            else:
-                for i in range(8):
-                    for j in range(8):
-                        if self.__board[i][j].isupper():
-                            if self.possible_moves(chr(j + 97) + str(8 - i)):
-                                return False
-            return True
-        if game_over():
+        if self.game_over():
             if self.__under_check:
-                return float('inf') * (-1) ** (self.__turn % 2)
+                return -float('inf') * (-1) ** (self.__turn % 2)
             return 0
-        return material_value() / 5 + pawn_structure() / 4 + king_safety() / 4 + 3 * influence_on_the_board() / 10
+        res = material_value() / 5 + pawn_structure() / 4 + king_safety() / 4 + 3 * influence_on_the_board() / 10
+        return res
+    def __getitem__(self, item):
+        if isinstance(item, str):
+            return self.__board[8 - int(item[1])][ord(item[0]) - 97]
+        if isinstance(item, int):
+            return self.__board[item]
     def __eq__(self, other):
         if isinstance(other, Board):
-            return self.__board == other.__board and self.__white_queenside_rook_moved == other.__white_queenside_rook_moved and self.__black_queenside_rook_moved == other.__black_queenside_rook_moved and self.__white_king_moved == other.__white_king_moved and self.__black_king_moved == other.__black_king_moved and self.__white_kingside_rook_moved == other.__white_kingside_rook_moved and self.__black_kingside_rook_moved == other.__black_kingside_rook_moved and self.__last_double_move == other.__last_double_move
+            b0 = self.__board == other.__board
+            b1 = self.__white_queenside_rook_moved == other.__white_queenside_rook_moved
+            b2 = self.__black_queenside_rook_moved == other.__black_queenside_rook_moved
+            b3 = self.__white_king_moved == other.__white_king_moved
+            b4 = self.__black_king_moved == other.__black_king_moved
+            b5 = self.__white_kingside_rook_moved == other.__white_kingside_rook_moved
+            b6 = self.__black_kingside_rook_moved == other.__black_kingside_rook_moved
+            b7 = self.__last_double_move == other.__last_double_move
+            b8 = self.__turn % 2 == other.__turn % 2
+            return b0 and b1 and b2 and b3 and b4 and b5 and b6 and b7 and b8
         return False
     def __str__(self):
-        res = ''
+        res = '  a b c d e f g h\n'
         for i, row in enumerate(self.__board):
-            res += '|' + ' '.join(row) + '|' + '\n' * (i < 7)
+            res += f'{8 - i}|' + '|'.join(row) + f'|{8 - i}' + '\n'
+        res += '  a b c d e f g h'
         return res
     def __repr__(self):
         return str(self)
 if __name__ == '__main__':
-    b = Board()
+    board = Board()
     while True:
-        print(b)
-        start_square, destination_square = input().lower().split()
+        print(board)
+        start_square = input().lower()
+        for _i_, _j_ in board.possible_moves(start_square):
+            print(chr(_j_ + 97) + str(8 - _i_))
+        destination_square = input().lower()
+        promoted_piece = None
+        if board[start_square] == 'P' and start_square[1] == '7' or board[start_square] == 'p' and start_square[1] == '2':
+            promoted_piece = input()
         try:
-            if b.move(start_square, destination_square):
-                if b.under_check():
-                    clear(), print(b, 'Mate!', sep='\n')
+            if board.move(start_square, destination_square, promoted_piece):
+                if board.under_check():
+                    clear(), print(board, 'Mate!', sep='\n')
                     break
                 else:
-                    clear(), print(b, 'Draw!\nNowhere to move.', sep='\n')
+                    clear(), print(board, 'Draw!\nNowhere to move.', sep='\n')
                     break
-            if b.insufficient_material():
-                clear(), print(b, 'Draw!\nInsufficient material.', sep='\n')
+            if board.insufficient_material():
+                clear(), print(board, 'Draw!\nInsufficient material.', sep='\n')
         except ValueError:
             print(f'Invalid move from {start_square} to {destination_square}!')
         clear()
