@@ -1145,16 +1145,17 @@ class Board:
             return self.__board[item]
     def __eq__(self, other):
         if isinstance(other, Board):
-            b0 = self.__board == other.__board
-            b1 = self.__white_queenside_rook_moved == other.__white_queenside_rook_moved
-            b2 = self.__black_queenside_rook_moved == other.__black_queenside_rook_moved
-            b3 = self.__white_king_moved == other.__white_king_moved
-            b4 = self.__black_king_moved == other.__black_king_moved
-            b5 = self.__white_kingside_rook_moved == other.__white_kingside_rook_moved
-            b6 = self.__black_kingside_rook_moved == other.__black_kingside_rook_moved
-            b7 = self.__last_double_move == other.__last_double_move
-            b8 = self.__turn % 2 == other.__turn % 2
-            return b0 and b1 and b2 and b3 and b4 and b5 and b6 and b7 and b8
+            if self.__board != other.__board or self.__last_double_move != other.__last_double_move or self.__turn % 2 != other.__turn % 2:
+                return False
+            if self.__white_castled or other.__white_castled:
+                white_side = True
+            else:
+                white_side = self.__white_queenside_rook_moved == other.__white_queenside_rook_moved and self.__white_kingside_rook_moved == other.__white_kingside_rook_moved and self.__white_king_moved == other.__white_king_moved
+            if self.__black_castled or other.__black_castled:
+                black_side = True
+            else:
+                black_side = self.__black_king_moved == other.__black_king_moved and self.__black_queenside_rook_moved == other.__black_queenside_rook_moved and self.__black_kingside_rook_moved == other.__black_kingside_rook_moved
+            return white_side and black_side
         return False
     def __str__(self):
         res = '  a b c d e f g h\n'
