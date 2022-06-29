@@ -1,9 +1,13 @@
 from os import system, name
+
+
 def clear():
     if name == 'nt':
         system('cls')
     else:
         system('clear')
+
+
 class Board:
     def __init__(self):
         self.__board = [['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
@@ -23,7 +27,10 @@ class Board:
         self.__black_queenside_rook_moved = False
         self.__black_kingside_rook_moved = False
         self.__under_check = False
+        self.__black_castled = False
+        self.__white_castled = False
         self.__importance_strength = {'Q': (9, 9), 'R': (5, 5), 'N': (3, 3), 'B': (3, 3), 'K': (float('inf'), 2), 'P': (1, 1), 'q': (-9, 9), 'r': (-5, 5), 'n': (-3, 3), 'b': (-3, 3), 'k': (-float('inf'), 2), 'p': (-1, 1)}
+
     def insufficient_material(self):
         total_material_strength = 0
         for i in range(8):
@@ -34,10 +41,13 @@ class Board:
                         return False
                     total_material_strength += self.__importance_strength[piece][1]
         return total_material_strength <= 5
+
     def under_check(self):
         return self.__under_check
+
     def turn(self):
         return self.__turn
+
     def copy(self):
         res = Board()
         for i in range(8):
@@ -47,7 +57,8 @@ class Board:
         res.__white_queenside_rook_moved, res.__white_kingside_rook_moved, res.__black_king_moved, res.__black_queenside_rook_moved = self.__white_queenside_rook_moved, self.__white_kingside_rook_moved, self.__black_king_moved, self.__black_queenside_rook_moved
         res.__black_kingside_rook_moved, res.__under_check = self.__black_kingside_rook_moved, self.__under_check
         return res
-    def move(self, square: str, dest_square: str, _promoted_piece=None):
+
+    def move(self, square: str, dest_square: str, promoted_piece=None):
         coordinates = (8 - int(square[1]), ord(square[0]) - 97)
         piece = self.__board[coordinates[0]][coordinates[1]]
         if piece.isupper() and self.__turn % 2 or piece.islower() and not self.__turn % 2 or square == dest_square or piece == ' ':
@@ -55,7 +66,7 @@ class Board:
         dest_coord = (8 - int(dest_square[1]), ord(dest_square[0]) - 97)
         if dest_coord not in self.possible_moves(square):
             raise ValueError
-        if coordinates[0] == (1, 6)[self.__turn % 2] and piece == 'Pp'[self.__turn % 2] and _promoted_piece not in list(['QRBN', 'qrbn'][self.__turn % 2]):
+        if coordinates[0] == (1, 6)[self.__turn % 2] and piece == 'Pp'[self.__turn % 2] and promoted_piece not in list(['QRBN', 'qrbn'][self.__turn % 2]):
             raise ValueError
         if piece.lower() == 'r':
             if square == 'h1':
@@ -73,11 +84,13 @@ class Board:
                         self.__board[0][5], self.__board[0][7] = 'r', ' '
                     elif dest_coord[1] == 2:
                         self.__board[0][0], self.__board[0][3] = ' ', 'r'
+                    self.__black_castled = True
                 else:
                     if dest_coord[1] == 6:
                         self.__board[7][5], self.__board[7][7] = 'R', ' '
                     elif dest_coord[1] == 2:
                         self.__board[7][0], self.__board[7][3] = ' ', 'R'
+                    self.__white_castled = True
             if self.__turn % 2:
                 self.__black_king_moved = True
             else:
@@ -91,7 +104,7 @@ class Board:
                     self.__last_double_move = dest_coord
             if self.__last_double_move is not None and abs(dest_coord[0] - self.__last_double_move[0]) == 1 and dest_coord[1] == self.__last_double_move[1]:
                 self.__board[coordinates[0]][dest_coord[1]] = ' '
-        res = (piece, _promoted_piece)[bool(_promoted_piece)]
+        res = (piece, promoted_piece)[bool(promoted_piece)]
         self.__board[coordinates[0]][coordinates[1]], self.__board[dest_coord[0]][dest_coord[1]] = ' ', res
         if not (piece.lower() == 'p' and (coordinates[0] == 6 and dest_coord[0] == 4, coordinates[0] == 1 and dest_coord[0] == 3)[self.__turn % 2]):
             self.__last_double_move = None
@@ -109,6 +122,7 @@ class Board:
             if not nowhere_to_move:
                 break
         return nowhere_to_move
+
     def possible_moves(self, square: str):
         i, j = 8 - int(square[1]), ord(square[0]) - 97
         piece = self.__board[i][j]
@@ -615,7 +629,7 @@ class Board:
                     self.__board[i][j], self.__board[ii][jj], self.__turn = ' ', self.__board[i][j], self.__turn + 1
                     if self.possible_position():
                         moves.append((ii, jj))
-                    self.__board[i][j], self.__board[ii][jj], self.__turn = self.__board[ii][jj], taken_piece, self.__turn - 1
+                    self.__board[i][j], self.__board[ii][jj], self.__turn = self.__board[ii][j], taken_piece, self.__turn - 1
                     if taken_piece != ' ':
                         break
                     ii -= 1
@@ -730,6 +744,7 @@ class Board:
                             moves.append((i + 1, j + 1))
                         self.__board[i][j], self.__board[i + 1][j + 1], self.__turn = 'p', taken_piece, self.__turn - 1
         return moves
+
     def possible_position(self):
         if self.__turn % 2:
             for i in range(8):
@@ -1026,6 +1041,7 @@ class Board:
                         if self.__board[i - 1][j - 1] == 'k' and j or self.__board[i - 1][min(j + 1, 7)] == 'k' and j < 7:
                             return False
         return True
+
     def game_over(self):
         if self.__turn % 2:
             for i in range(8):
@@ -1040,6 +1056,7 @@ class Board:
                         if self.possible_moves(chr(j + 97) + str(8 - i)):
                             return False
         return True
+
     def evaluate(self):
         def material_value():
             strength_value = 0
@@ -1050,6 +1067,7 @@ class Board:
                         if abs(self.__importance_strength[piece][0]) != float('inf'):
                             strength_value += self.__importance_strength[piece][0]
             return strength_value
+
         def pawn_structure():
             black_pawns, white_pawns = [], []
             for i in range(8):
@@ -1063,6 +1081,7 @@ class Board:
                 if len(black_pawns) == 8 and len(white_pawns) == 8:
                     break
             black_pawns, white_pawns = list(sorted(black_pawns, key=lambda p: p[::-1])), list(sorted(white_pawns, key=lambda p: (p[1], -p[0])))
+
             def black():
                 if not black_pawns:
                     return 0
@@ -1095,6 +1114,7 @@ class Board:
                     for pawn in isle:
                         protection += covered_squares.count(pawn)
                 return len(black_pawns) / 40 + 2 * (len(taken_files) / len(black_pawns)) / 5 + 3 / (20 * len(isles)) + protection / (4 * len(black_pawns))
+
             def white():
                 if not white_pawns:
                     return 0
@@ -1127,22 +1147,28 @@ class Board:
                     for pawn in isle:
                         protection += covered_squares.count(pawn)
                 return len(white_pawns) / 40 + 2 * (len(taken_files) / len(white_pawns)) / 5 + 3 / (20 * len(isles)) + protection / (4 * len(white_pawns))
+
             return white() - black()
+
         def king_safety():
             return 0
+
         def influence_on_the_board():
             return 0
+
         if self.game_over():
             if self.__under_check:
                 return -float('inf') * (-1) ** (self.__turn % 2)
             return 0
         res = material_value() / 5 + pawn_structure() / 4 + king_safety() / 4 + 3 * influence_on_the_board() / 10
         return res
+
     def __getitem__(self, item):
         if isinstance(item, str):
             return self.__board[8 - int(item[1])][ord(item[0]) - 97]
         if isinstance(item, int):
             return self.__board[item]
+
     def __eq__(self, other):
         if isinstance(other, Board):
             if self.__board != other.__board or self.__last_double_move != other.__last_double_move or self.__turn % 2 != other.__turn % 2:
@@ -1161,14 +1187,18 @@ class Board:
                 black_side = queenside_same and kingside_same
             return white_side and black_side
         return False
+
     def __str__(self):
         res = '  a b c d e f g h\n'
         for i, row in enumerate(self.__board):
             res += f'{8 - i}|' + '|'.join(row) + f'|{8 - i}' + '\n'
         res += '  a b c d e f g h'
         return res
+
     def __repr__(self):
         return str(self)
+
+
 if __name__ == '__main__':
     board = Board()
     while True:
@@ -1177,11 +1207,11 @@ if __name__ == '__main__':
         for _i_, _j_ in board.possible_moves(start_square):
             print(chr(_j_ + 97) + str(8 - _i_))
         destination_square = input().lower()
-        promoted_piece = None
+        _promoted_piece = None
         if board[start_square] == 'P' and start_square[1] == '7' or board[start_square] == 'p' and start_square[1] == '2':
-            promoted_piece = input()
+            _promoted_piece = input()
         try:
-            if board.move(start_square, destination_square, promoted_piece):
+            if board.move(start_square, destination_square, _promoted_piece):
                 if board.under_check():
                     clear(), print(board, 'Mate!', sep='\n')
                     break
