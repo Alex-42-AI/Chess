@@ -1211,15 +1211,15 @@ if __name__ == '__main__':
         if board[start_square] == 'P' and start_square[1] == '7' or board[start_square] == 'p' and start_square[1] == '2':
             _promoted_piece = input()
         try:
+            clear()
             if board.move(start_square, destination_square, _promoted_piece):
                 if board.under_check():
-                    clear(), print(board, 'Mate!', sep='\n')
-                    break
+                    print(board, 'Mate!', sep='\n')
                 else:
-                    clear(), print(board, 'Draw!\nNowhere to move.', sep='\n')
-                    break
+                    print(board, 'Draw!\nNowhere to move.', sep='\n')
             if board.insufficient_material():
-                clear(), print(board, 'Draw!\nInsufficient material.', sep='\n')
+                print(board, 'Draw!\nInsufficient material.', sep='\n')
+            break
         except ValueError:
             print(f'Invalid move from {start_square} to {destination_square}!')
         clear()
